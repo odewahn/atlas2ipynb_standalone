@@ -57,6 +57,32 @@ def ipynb_html_passthrough_cell(line)
    }
 end
 
+# Need to get unicode_utils gem installed for internationalization and then do:
+#   require 'unicode_utils/downcase'
+#   UnicodeUtils.downcase(s)
+def make_filename(s)
+   out = s.downcase
+   out.gsub!(/^.*(\\|\/)/,'')
+   out.gsub!(/[^0-9A-Za-z]/,"_")
+   # now we want to truncate the name at 50 chars, but do it nicely
+   # so that the last word is preserved
+   out_shortened = []
+   chars = 0
+   out.split("_").each do |c|
+     if (chars +  c.length) < 50
+       out_shortened << c
+       chars += c.length
+     end
+   end
+   out = out_shortened.join("_")
+   # 
+   # Now remove any trailing "_"
+   #
+   while out[-1] == "_"
+     out = out[0,out.length-1]
+   end
+   return out
+end
 
 
 #*************************************************************************************
@@ -111,6 +137,10 @@ def html_to_ipynb(fn)
     img.attributes["src"].value = src.split("/").unshift("files").join("/")  #prepends "files" to the src
   end
   #
+  # Grab the first h1 tag to use as part of the notebooks filename
+  #
+  chapter_title = doc.css("section h1").first.text
+  #
   # post-processing is done, so now pass in the first section to process_section
   #
   raw_json = process_section(doc.css("section").first,1, [])
@@ -135,7 +165,7 @@ def html_to_ipynb(fn)
   #
   notebook = {
    "metadata" => {
-    "name" => ""
+    "name" => chapter_title
    },
    "nbformat" => 3,
    "nbformat_minor"=> 0,
@@ -155,11 +185,12 @@ end
 #
 # process all html files in the directory
 Dir["ch*.html"].each do |fn|
+  out = html_to_ipynb(fn)
   # Compute the new filename, which is the original filename 
   # with the ".html" (last 5 chars) replaced with ".ipynb".   
-  ipynb_fn = "#{fn[0,fn.length-5]}.ipynb"
+  title_fn = make_filename(out['metadata']['name'])
+  ipynb_fn = "#{fn[0,fn.length-5]}_#{title_fn}.ipynb"
   # Create the file
-  out = html_to_ipynb(fn)
   f = File.open(ipynb_fn, 'w')
   f.write JSON.pretty_generate(out)
   f.close
