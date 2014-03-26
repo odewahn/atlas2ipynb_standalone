@@ -1,6 +1,7 @@
 require 'nokogiri'
 require 'reverse_markdown'
 require 'json'
+require 'active_support/inflector'
 
 
 #
@@ -61,7 +62,8 @@ end
 #   require 'unicode_utils/downcase'
 #   UnicodeUtils.downcase(s)
 def make_filename(s)
-   out = s.downcase
+   I18n.enforce_available_locales = false
+   out = ActiveSupport::Inflector.transliterate(s).downcase
    out.gsub!(/^.*(\\|\/)/,'')
    out.gsub!(/[^0-9A-Za-z]/,"_")
    # now we want to truncate the name at 50 chars, but do it nicely
