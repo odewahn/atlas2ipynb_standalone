@@ -11,10 +11,10 @@ require 'active_support/inflector'
 # supported in markdown, they are not handled correctly by reverse_markdown)
 #
 TARGETS = {
+  "html_passthrough" => ["iframe","video", "div", "math", "table", "figure", "ul", "ol", "blockquote"],
   "markdown" => ["p"],
   "header"   => ["h1", "h2", "h3", "h4", "h4", "h5", "h6"],
-  "code" => ["pre", "code"],
-  "html_passthrough" => ["iframe","video", "table", "figure", "ul", "ol"]
+  "code" => ["pre", "code"]
 }
 
 # Return a header cell
