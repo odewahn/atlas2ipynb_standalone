@@ -10,7 +10,7 @@ def ipynb_header_cell(line)
      "cell_type" => "heading",
      "level" => line[:level],
      "metadata" => {}, 
-     "source" => ReverseMarkdown.parse(line[:text_val])
+     "source" => line[:text_val]
    }
 end
 
@@ -81,7 +81,7 @@ def process_section(n, level, out)
     else      
       cell_type = "html-passthrough"
        if ["h1", "h2", "h3", "h4", "h4", "h5", "h6"].include? c.name
-         cell_type = "heading"
+         cell_type = "header"
        elsif ["pre","code"].include? c.name
          cell_type = "code"
        end 
