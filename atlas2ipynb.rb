@@ -3,42 +3,12 @@ require 'json'
 require 'active_support/inflector'
 
 
-# Return a header cell
-def ipynb_header_cell(line)
-  return {
-     "cell_type" => "heading",
-     "level" => line[:level],
-     "metadata" => {}, 
-     "source" => line[:text_val]
-   }
-end
 
-
-# return a code cell
-def ipynb_code_cell(line)
-  return {   
-     "cell_type" => "code",
-     "collapsed" => false,
-     "input" => line[:text_val], 
-     "language" => line[:attributes]["data-code-language"] || "python",
-     "metadata" => {}, 
-     "outputs" => []
-   }
-end
-
-# return html pass-through cell for markup that is not supported in 
-# "true" markdown or correctly handled by the reverse_html gem
-def ipynb_html_passthrough_cell(line)
-  return {   
-     "cell_type" => "markdown",
-     "metadata" => {}, 
-     "source" => line[:raw_val]
-   }
-end
-
-# Need to get unicode_utils gem installed for internationalization and then do:
-#   require 'unicode_utils/downcase'
-#   UnicodeUtils.downcase(s)
+#*************************************************************************************
+# Takes a string and turns it into something that can be used as a filename
+# handles special chars and internaitonalization isseus, although
+# I'm not sure what it will do with CJKV  languages
+#*************************************************************************************
 def make_filename(s)
    I18n.enforce_available_locales = false
    out = ActiveSupport::Inflector.transliterate(s).downcase
@@ -66,36 +36,45 @@ end
 
 
 #*************************************************************************************
-#  This function  processes the raw HTML sections from nokogiri and 
-#  converts each element to simplified JSON data structure that will be 
-#  post-processed into ipynb cells
+#  This function  processes the raw HTML sections using nokogiri.  It looks for 
+# headers or code; everything else is treated as HTML.  This can be passed to 
+# ipynb directly since markdown is a superset of HTML.  Although I'd originally
+# planned to convert HTML to markdown, this proved infeasible with all the many
+# edge cases in conversion, such has mathml
 #*************************************************************************************
-def process_section(n, level, out)
-  
+def process_section(n, level, out) 
   n.children.each do |c|  
-    target_type_found = false
-    
     if c.name == "section"
        # A section is a container only, so we need to recurse down a level to get the content
        process_section(c, level+1, out)      
     else      
-      cell_type = "html-passthrough"
       case c.name
         when "h1", "h2", "h3", "h4", "h4", "h5", "h6"
-          cell_type = "header"
+          out << {
+             "cell_type" => "heading",
+             "level" => level,
+             "metadata" => {}, 
+             "source" => c.text
+           }
         when "pre","code"
-          cell_type = "code"
-      end 
-      out << { 
-        :type => cell_type, 
-        :raw_val => c.to_s, 
-        :text_val => c.text, 
-        :level => level,
-        :attributes => c.attributes }
+          out << {   
+             "cell_type" => "code",
+             "collapsed" => false,
+             "input" => c.text, 
+             "language" => c.attributes["data-code-language"] || "python",
+             "metadata" => {}, 
+             "outputs" => []
+           }
+        else
+          out << {   
+             "cell_type" => "markdown",
+             "metadata" => {}, 
+             "source" => c.to_s
+          }
+      end
     end  
   end
   return out
-
 end
 
 
@@ -125,24 +104,6 @@ def html_to_ipynb(fn)
   #
   chapter_title = doc.css("section h1").first.text
   #
-  # post-processing is done, so now pass in the first section to process_section
-  #
-  raw_json = process_section(doc.css("section").first,1, [])
-  #
-  # process each returned element into it's closest ipython notebook equivalent
-  #
-  cells = []
-  raw_json.each do |line|
-    case line[:type]
-       when "header"
-          cells << ipynb_header_cell(line)
-       when "code"
-          cells << ipynb_code_cell(line)
-       else
-          cells << ipynb_html_passthrough_cell(line)
-    end
-  end
-  #
   # combine the cells we just computed with the ipynb header information
   #
   notebook = {
@@ -153,19 +114,18 @@ def html_to_ipynb(fn)
    "nbformat_minor"=> 0,
    "worksheets" => [
     {
-     "cells" => cells,  
+     "cells" => process_section(doc.css("section").first,1, []),  
      "metadata" => {}
     }
    ]
   }
-  
   return notebook
-  
 end
 
 
-#
+#*************************************************************************************
 # process all html files in the directory
+#*************************************************************************************
 Dir["ch*.html"].each do |fn|
   out = html_to_ipynb(fn)
   # Compute the new filename, which is the original filename 
