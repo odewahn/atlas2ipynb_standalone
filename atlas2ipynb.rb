@@ -4,19 +4,6 @@ require 'json'
 require 'active_support/inflector'
 
 
-#
-# List of HTML elements that we'll convert; note that handling
-# for most common elements will is taken care of by the 
-# reverse_markdown gem.  (Note that even though <ol> and <ul> are
-# supported in markdown, they are not handled correctly by reverse_markdown)
-#
-TARGETS = {
-  "html_passthrough" => ["iframe","video", "div", "math", "table", "figure", "ul", "ol", "blockquote"],
-  "markdown" => ["p"],
-  "header"   => ["h1", "h2", "h3", "h4", "h4", "h5", "h6"],
-  "code" => ["pre", "code"]
-}
-
 # Return a header cell
 def ipynb_header_cell(line)
   return {
@@ -27,14 +14,6 @@ def ipynb_header_cell(line)
    }
 end
 
-# return a markdown cell
-def ipynb_markdown_cell(line)
-  return {   
-     "cell_type" => "markdown",
-     "metadata" => {}, 
-     "source" => ReverseMarkdown.parse(line[:raw_val])
-  }
-end
 
 # return a code cell
 def ipynb_code_cell(line)
@@ -95,22 +74,24 @@ end
 def process_section(n, level, out)
   
   n.children.each do |c|  
-    TARGETS.each do |type,tags|
-      if tags.include? c.name
-         out << { 
-           :type => type, 
-           :raw_val => c.to_s, 
-           :text_val => c.text, 
-           :level => level,
-           :attributes => c.attributes }
-           break
-      end
-    end      
-    # reverse_markdown is going to do most of the tree walking for us, but we do
-    # need to recurse for <section> tags
-    if c.name == "section" 
-      process_section(c, level+1, out)      
-    end
+    target_type_found = false
+    
+    if c.name == "section"
+       process_section(c, level+1, out)      
+    else      
+      cell_type = "html-passthrough"
+       if ["h1", "h2", "h3", "h4", "h4", "h5", "h6"].include? c.name
+         cell_type = "heading"
+       elsif ["pre","code"].include? c.name
+         cell_type = "code"
+       end 
+       out << { 
+          :type => cell_type, 
+          :raw_val => c.to_s, 
+          :text_val => c.text, 
+          :level => level,
+          :attributes => c.attributes }
+    end  
   end
   return out
 
@@ -129,7 +110,7 @@ def html_to_ipynb(fn)
   f = File.open(fn)
   txt = f.read
   f.close
-  doc = Nokogiri::HTML(txt)
+  doc = Nokogiri::HTML(txt, nil, 'utf-8')
   #
   # Pre-process the doc to fix image URLs so that images can be served by the notebook server
   # You do this by prepending "files/" to the image's relative URL, per this question on stackoverflow:
@@ -154,11 +135,9 @@ def html_to_ipynb(fn)
     case line[:type]
        when "header"
           cells << ipynb_header_cell(line)
-       when "markdown"
-          cells << ipynb_markdown_cell(line)
        when "code"
           cells << ipynb_code_cell(line)
-       when "html_passthrough"
+       else
           cells << ipynb_html_passthrough_cell(line)
     end
   end
