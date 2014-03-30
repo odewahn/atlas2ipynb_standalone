@@ -1,5 +1,4 @@
 require 'nokogiri'
-require 'reverse_markdown'
 require 'json'
 require 'active_support/inflector'
 
@@ -77,20 +76,22 @@ def process_section(n, level, out)
     target_type_found = false
     
     if c.name == "section"
+       # A section is a container only, so we need to recurse down a level to get the content
        process_section(c, level+1, out)      
     else      
       cell_type = "html-passthrough"
-       if ["h1", "h2", "h3", "h4", "h4", "h5", "h6"].include? c.name
-         cell_type = "header"
-       elsif ["pre","code"].include? c.name
-         cell_type = "code"
-       end 
-       out << { 
-          :type => cell_type, 
-          :raw_val => c.to_s, 
-          :text_val => c.text, 
-          :level => level,
-          :attributes => c.attributes }
+      case c.name
+        when "h1", "h2", "h3", "h4", "h4", "h5", "h6"
+          cell_type = "header"
+        when "pre","code"
+          cell_type = "code"
+      end 
+      out << { 
+        :type => cell_type, 
+        :raw_val => c.to_s, 
+        :text_val => c.text, 
+        :level => level,
+        :attributes => c.attributes }
     end  
   end
   return out

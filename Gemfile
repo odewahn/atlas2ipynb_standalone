@@ -3,5 +3,4 @@ source 'https://rubygems.org'
 
 gem 'nokogiri'
 gem 'json'
-gem 'reverse_markdown'
 gem 'activesupport'
