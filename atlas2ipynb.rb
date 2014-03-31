@@ -3,9 +3,12 @@ require 'json'
 require 'active_support/inflector'
 
 #*************************************************************************************
-# Takes a string and turns it into something that can be used as a filename
-# handles special chars and internaitonalization isseus, although
-# I'm not sure what it will do with CJKV  languages
+# Takes a string and turns it into something that can be used as a filename, per
+#    http://stackoverflow.com/questions/1939333/how-to-make-a-ruby-string-safe-for-a-filesystem
+# Also handles special chars and internaitonalization isseus, although
+# I'm not sure what it will do with CJKV  languages.  Finally, it ensures that the
+# string is less than 50 chars long, but breaks it on a word boundry so that it 
+# looks "nice"
 #*************************************************************************************
 def make_filename(s)
    I18n.enforce_available_locales = false
