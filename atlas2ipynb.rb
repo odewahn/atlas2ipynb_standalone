@@ -2,8 +2,6 @@ require 'nokogiri'
 require 'json'
 require 'active_support/inflector'
 
-
-
 #*************************************************************************************
 # Takes a string and turns it into something that can be used as a filename
 # handles special chars and internaitonalization isseus, although
@@ -36,7 +34,7 @@ end
 
 
 #*************************************************************************************
-#  This function  processes the raw HTML sections using nokogiri.  It looks for 
+# This function  processes the raw HTML sections using nokogiri.  It looks for 
 # headers or code; everything else is treated as HTML.  This can be passed to 
 # ipynb directly since markdown is a superset of HTML.  Although I'd originally
 # planned to convert HTML to markdown, this proved infeasible with all the many
@@ -44,11 +42,9 @@ end
 #*************************************************************************************
 def process_section(n, level, out) 
   n.children.each do |c|  
-    if c.name == "section"
-       # A section is a container only, so we need to recurse down a level to get the content
-       process_section(c, level+1, out)      
-    else      
-      case c.name
+     case c.name
+        when "section"
+          process_section(c, level+1, out) # since a section is just a container, we need to recurse to get the content                
         when "h1", "h2", "h3", "h4", "h4", "h5", "h6"
           out << {
              "cell_type" => "heading",
@@ -73,8 +69,7 @@ def process_section(n, level, out)
           }
       end
     end  
-  end
-  return out
+    return out
 end
 
 
