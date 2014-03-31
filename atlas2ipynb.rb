@@ -3,36 +3,25 @@ require 'json'
 require 'active_support/inflector'
 
 #*************************************************************************************
-# Takes a string and turns it into something that can be used as a filename, per
+# ipynb uses the plain filename as the user's index page, so we need to make something
+# a name that is "meaningful".  To do this, I turn the <h1> from the first section, which 
+# should be the chapter title, into a filename, per
 #    http://stackoverflow.com/questions/1939333/how-to-make-a-ruby-string-safe-for-a-filesystem
-# Also handles special chars and internaitonalization isseus, although
-# I'm not sure what it will do with CJKV  languages.  Finally, it ensures that the
+# Also, since we might have special chars and foreign language isseus, we transliterate
+# the string to strip out accents and such, per:
+#    http://stackoverflow.com/questions/225471/how-do-i-replace-accented-latin-characters-in-ruby
+# (I'm not sure what it will do with CJKV  languages.)  Finally, it ensures that the
 # string is less than 50 chars long, but breaks it on a word boundry so that it 
 # looks "nice"
 #*************************************************************************************
-def make_filename(s)
+def string_to_filename(s)
    I18n.enforce_available_locales = false
    out = ActiveSupport::Inflector.transliterate(s).downcase
    out.gsub!(/^.*(\\|\/)/,'')
    out.gsub!(/[^0-9A-Za-z]/,"_")
-   # now we want to truncate the name at 50 chars, but do it nicely
-   # so that the last word is preserved
-   out_shortened = []
-   chars = 0
-   out.split("_").each do |c|
-     if (chars +  c.length) < 50
-       out_shortened << c
-       chars += c.length
-     end
-   end
-   out = out_shortened.join("_")
-   # 
-   # Now remove any trailing "_"
-   #
-   while out[-1] == "_"
-     out = out[0,out.length-1]
-   end
-   return out
+   # truncate the name at 50 chars, but do it "nicely"
+   candidate = out[0,50].split("_") - [""]
+   return candidate.join("_")
 end
 
 
@@ -84,11 +73,7 @@ end
 def html_to_ipynb(fn)
   #
   # Open the file and parse it w/nokogiri
-  #
-  f = File.open(fn)
-  txt = f.read
-  f.close
-  doc = Nokogiri::HTML(txt, nil, 'utf-8')
+  doc = Nokogiri::HTML(IO.read(fn), nil, 'utf-8')
   #
   # Pre-process the doc to fix image URLs so that images can be served by the notebook server
   # You do this by prepending "files/" to the image's relative URL, per this question on stackoverflow:
@@ -122,13 +107,13 @@ end
 
 
 #*************************************************************************************
-# process all html files in the directory
+# Convert all chapter files in the directory into ipynb
 #*************************************************************************************
 Dir["ch*.html"].each do |fn|
   out = html_to_ipynb(fn)
   # Compute the new filename, which is the original filename 
   # with the ".html" (last 5 chars) replaced with ".ipynb".   
-  title_fn = make_filename(out['metadata']['name'])
+  title_fn = string_to_filename(out['metadata']['name'])
   ipynb_fn = "#{fn[0,fn.length-5]}_#{title_fn}.ipynb"
   # Create the file
   f = File.open(ipynb_fn, 'w')
